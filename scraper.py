@@ -20,35 +20,54 @@ class WikiScraper:
         self.links_found = 0
         self.start_time = 0
 
+    API_URL = "https://en.wikipedia.org/w/api.php"
+
+    def _get_json(self, params):
+        """GET the API with retries. Returns the parsed JSON, or None after 3 failed attempts."""
+        for attempt in range(3):
+            try:
+                response = requests.get(self.API_URL, params=params, headers=self.headers, timeout=10)
+                if response.status_code == 429:
+                    time.sleep(int(response.headers.get("Retry-After", 5)))
+                    continue
+
+                response.raise_for_status()
+                return response.json()
+            except (requests.exceptions.RequestException, ValueError):
+                time.sleep(2)
+        return None
+
     def fetch_links(self, title):
-        url = "https://en.wikipedia.org/w/api.php"
+        """Return every article (namespace 0) linked from `title`, or None if the fetch failed."""
         params = {
             "action": "query",
             "prop": "links",
             "titles": title,
             "format": "json",
             "pllimit": "max",
+            "plnamespace": 0,  # only real articles, not Talk:, Category:, Template:, ...
             "redirects": 1
         }
 
-        for attempt in range(3):
+        links = []
+        while True:
+            data = self._get_json(params)
+            if data is None:
+                # None (not []) so the caller can tell "fetch failed" from "page has no links"
+                return None
+
             try:
-                response = requests.get(url, params=params, headers=self.headers, timeout=10)
-                if response.status_code == 429:
-                    time.sleep(int(response.headers.get("Retry-After", 5)))
-                    continue
+                pages = data["query"]["pages"]
+            except KeyError:
+                return None
 
-                response.raise_for_status()
-                pages = response.json()["query"]["pages"]
+            for page_info in pages.values():
+                links.extend(link["title"] for link in page_info.get("links", []))
 
-                for page_id, page_info in pages.items():
-                    if "links" in page_info:
-                        return [link["title"] for link in page_info["links"]]
-                return []
-            except (requests.exceptions.RequestException, ValueError, KeyError):
-                time.sleep(2)
-        # None (not []) so the caller can tell "fetch failed" from "page has no links"
-        return None
+            # pllimit=max returns at most 500 links per call; follow the continuation token.
+            if "continue" not in data:
+                return links
+            params = {**params, **data["continue"]}
 
     def run(self, seed, max_pages):
         self.start_time = time.time()
