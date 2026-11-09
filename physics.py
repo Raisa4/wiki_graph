@@ -1,5 +1,6 @@
 import logging
 import random
+from collections import Counter
 import math
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,15 @@ def run_physics_simulation(positions, edges, iterations=50, width=800, height=60
     # Temperature controls how much nodes can move. It cools down (decreases) over time.
     temperature = width / 10
 
+    # Each node's spring pull is divided by sqrt(its degree). Without this, in a dense
+    # graph a node with ~150 edges is pulled by ~150 springs at once and the whole
+    # layout collapses into a small blob.
+    degree = Counter()
+    for source, target in edges:
+        if source in positions and target in positions:
+            degree[source] += 1
+            degree[target] += 1
+
     logger.info("Running physics simulation for %d iterations...", iterations)
 
     for i in range(iterations):
@@ -42,8 +52,9 @@ def run_physics_simulation(positions, edges, iterations=50, width=800, height=60
                 dy = positions[node1]['y'] - positions[node2]['y']
                 dist = math.hypot(dx, dy)
 
-                # Optimization: only calculate repulsion if they are close to each other
-                if 0 < dist < k * 2:
+                # Repel at every distance. (A cutoff saves no work here, since the
+                # distance is already computed, and it let dense graphs collapse.)
+                if dist > 0:
                     force = (k * k) / dist
                     displacements[node1]['x'] += (dx / dist) * force
                     displacements[node1]['y'] += (dy / dist) * force
@@ -57,11 +68,14 @@ def run_physics_simulation(positions, edges, iterations=50, width=800, height=60
 
                 if dist > 0:
                     force = (dist * dist) / k
-                    displacements[source]['x'] -= (dx / dist) * force
-                    displacements[source]['y'] -= (dy / dist) * force
+                    source_force = force / math.sqrt(degree[source])
+                    target_force = force / math.sqrt(degree[target])
 
-                    displacements[target]['x'] += (dx / dist) * force
-                    displacements[target]['y'] += (dy / dist) * force
+                    displacements[source]['x'] -= (dx / dist) * source_force
+                    displacements[source]['y'] -= (dy / dist) * source_force
+
+                    displacements[target]['x'] += (dx / dist) * target_force
+                    displacements[target]['y'] += (dy / dist) * target_force
 
         # 3. APPLY MOVEMENT: Move nodes, but cap the speed based on 'temperature'
         for node in positions:
