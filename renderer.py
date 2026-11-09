@@ -22,6 +22,8 @@ def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600)
     styles = {node: BASE_STYLE for node, _ in base_topics}
     styles.update({node: NICHE_STYLE for node, _ in niche_topics})
 
+    clock = pygame.time.Clock()
+
     running = True
     while running:
         # 1. Clear the screen with a dark gray background
@@ -65,5 +67,6 @@ def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600)
 
         # Update the display
         pygame.display.flip()
+        clock.tick(60)  # cap at 60 FPS instead of spinning at 100% CPU
 
     pygame.quit()
