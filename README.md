@@ -1,0 +1,69 @@
+[![tests](https://github.com/Raisa4/wiki_graph/actions/workflows/test.yml/badge.svg)](https://github.com/Raisa4/wiki_graph/actions/workflows/test.yml)
+
+# Wikipedia Knowledge Graph
+
+Crawls Wikipedia's link structure into SQLite, ranks articles by how often other articles link to them, and draws the most central ones as an interactive force-directed graph. The layout algorithm is written from scratch, with no graph libraries.
+
+<!-- TODO: add a screenshot. Generate it with:
+     python main.py analyze --top 300 --screenshot docs/screenshot.png
+![Graph of the 300 most-linked articles around "Graph theory"](docs/screenshot.png)
+-->
+
+- **Red, large nodes:** *base topics*, which many crawled articles link to.
+- **Blue nodes:** *niche topics*, which rarely get linked to but link out to many articles.
+- **Gray nodes:** everything else. Hover over any node to see its title.
+
+## How it works
+
+```
+scraper.py        BFS crawl via the MediaWiki API  ──►  wiki_graph.db (articles, edges)
+graph_metrics.py  in/out degree, normalised "heat" score, node categories
+physics.py        Fruchterman–Reingold force-directed layout
+renderer.py       Pygame viewer with hover labels
+main.py           command-line entry point
+```
+
+## Running it
+
+Requires Python 3.10+.
+
+```bash
+pip install -r requirements.txt
+
+# Optional: Wikimedia asks API clients to identify themselves
+export WIKI_GRAPH_CONTACT="you@example.com"
+
+# 1. Crawl. Safe to stop and re-run: it resumes where it left off.
+python main.py crawl --seed "Graph theory" --max-pages 500
+
+# 2. Rank, lay out and view the top 300 articles
+python main.py analyze --top 300
+```
+
+Add `-v` before the subcommand for debug-level progress logs, and `--help` on any command for all options.
+
+Run the tests with:
+
+```bash
+pytest
+```
+
+## Design decisions
+
+**Threads fetch, the main thread writes.** A `ThreadPoolExecutor` fetches a batch of pages in parallel, since the work is network-bound. All SQLite reads and writes stay on the main thread, because a SQLite connection shouldn't be shared across threads. This avoids locks entirely.
+
+**The database is the crawl state.** The `articles` table works as the BFS "seen" set: a link is queued only if `INSERT OR IGNORE` actually inserted a new row. Each page is marked `visited` only after its links have been saved. On startup, every `visited = 0` row is loaded back into the queue, so an interrupted crawl resumes instead of starting over. A page that fails to fetch is never marked visited, so a later run retries it.
+
+**Being a polite API client.** Every request has a 10 s timeout and up to 3 attempts. On HTTP 429, the scraper sleeps for the server's `Retry-After` value before retrying. Batches are spaced 0.5 s apart. Large articles are fetched in full by following `plcontinue`. `plnamespace=0` keeps only real articles, so `Talk:`, `Category:` and `Template:` pages don't skew the rankings.
+
+**A from-scratch layout.** `physics.py` implements Fruchterman–Reingold:
+- every pair of nodes repels with force k²/d,
+- every edge pulls like a spring with force d²/k,
+- each step's movement is capped by a "temperature" that cools by 10% per iteration, so the graph settles instead of oscillating.
+
+## Limitations
+
+- **O(n²) repulsion.** Every layout iteration compares every pair of nodes, which is why only the top 300 nodes are drawn. A Barnes–Hut quadtree would bring this down to O(n log n).
+- **Heat depends on where the crawl started.** In-degree only counts links from pages that have been crawled, so articles near the seed score higher than their global importance warrants.
+- **Single-threaded writes.** Parsing is cheap compared with the network, but a very large crawl would eventually be limited by SQLite commits on the main thread.
+- **Redirects.** Links are stored under their linked title, so `USA` and `United States` can appear as separate nodes.
