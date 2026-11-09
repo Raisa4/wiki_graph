@@ -32,7 +32,7 @@ class WikiScraper:
 
         for attempt in range(3):
             try:
-                response = requests.get(url, params=params, headers=self.headers)
+                response = requests.get(url, params=params, headers=self.headers, timeout=10)
                 if response.status_code == 429:
                     time.sleep(int(response.headers.get("Retry-After", 5)))
                     continue
