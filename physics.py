@@ -67,8 +67,11 @@ def run_physics_simulation(positions, edges, iterations=50, width=800, height=60
             dist = math.hypot(dx, dy)
 
             if dist > 0:
-                move_x = (dx / dist) * min(abs(dx), temperature)
-                move_y = (dy / dist) * min(abs(dy), temperature)
+                # Cap the length of the whole displacement vector by the temperature
+                # (as in Fruchterman-Reingold), keeping its direction unchanged.
+                step = min(dist, temperature)
+                move_x = (dx / dist) * step
+                move_y = (dy / dist) * step
 
                 # Apply movement and keep nodes within the screen boundaries
                 positions[node]['x'] = max(0, min(width, positions[node]['x'] + move_x))
