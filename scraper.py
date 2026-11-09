@@ -16,6 +16,7 @@ class WikiScraper:
         self.max_workers = max_workers
 
         self.pages_processed = 0
+        self.pages_failed = 0
         self.links_found = 0
         self.start_time = 0
 
@@ -44,9 +45,10 @@ class WikiScraper:
                     if "links" in page_info:
                         return [link["title"] for link in page_info["links"]]
                 return []
-            except requests.exceptions.RequestException:
+            except (requests.exceptions.RequestException, ValueError, KeyError):
                 time.sleep(2)
-        return []
+        # None (not []) so the caller can tell "fetch failed" from "page has no links"
+        return None
 
     def run(self, seed, max_pages):
         self.start_time = time.time()
@@ -77,6 +79,12 @@ class WikiScraper:
                 results = list(executor.map(self.fetch_links, batch))
 
                 for current_title, links in zip(batch, results):
+                    if links is None:
+                        # Leave visited = 0 so a later run retries this page.
+                        self.pages_failed += 1
+                        print(f"Failed to fetch '{current_title}', will retry on next run")
+                        continue
+
                     self.links_found += len(links)
                     for link in links:
                         cursor.execute('INSERT OR IGNORE INTO edges (source_title, target_title) VALUES (?, ?)',
@@ -107,6 +115,7 @@ class WikiScraper:
         print("=" * 30)
         print(f"Total Time:      {elapsed:.2f} seconds")
         print(f"Pages Processed: {self.pages_processed}")
+        print(f"Pages Failed:    {self.pages_failed}")
         print(f"Speed:           {rate:.2f} pages/sec")
         print("-" * 30)
         print(f"Total Nodes:     {total_nodes}")
