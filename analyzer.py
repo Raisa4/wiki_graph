@@ -33,7 +33,7 @@ if __name__ == "__main__":
     heat_scores = calculate_heat_scores(in_degree)
 
     sorted_nodes = sorted(heat_scores.items(), key=lambda item: item[1], reverse=True)
-    top_nodes = [node for node, score in sorted_nodes[:300]]
+    top_nodes = {node for node, score in sorted_nodes[:300]}  # set: O(1) membership checks
     print(f"Extracted the top {len(top_nodes)} nodes for visualization.")
 
     filtered_edges = []
