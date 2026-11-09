@@ -152,9 +152,3 @@ class WikiScraper:
         print(f"Total Nodes:     {total_nodes}")
         print(f"Total Edges:     {total_edges}")
         print("=" * 30 + "\n")
-
-
-if __name__ == "__main__":
-    scraper = WikiScraper(max_workers=5)
-    # You can leave this at a small number since you already built your dataset
-    scraper.run(seed="Graph theory", max_pages=5)

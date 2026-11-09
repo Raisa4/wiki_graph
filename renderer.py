@@ -8,7 +8,8 @@ NICHE_STYLE = ((50, 120, 220), 4)     # Niche topics: small, blue
 DEFAULT_STYLE = ((150, 150, 150), 3)  # Everything else: tiny, light gray
 
 
-def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600):
+def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600, screenshot=None):
+    """Open an interactive window. If `screenshot` is a path, save the first frame there and exit."""
     pygame.init()
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption("Wikipedia Knowledge Graph")
@@ -67,6 +68,9 @@ def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600)
 
         # Update the display
         pygame.display.flip()
+        if screenshot:
+            pygame.image.save(screen, screenshot)
+            running = False
         clock.tick(60)  # cap at 60 FPS instead of spinning at 100% CPU
 
     pygame.quit()
