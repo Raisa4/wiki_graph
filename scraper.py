@@ -109,7 +109,9 @@ class WikiScraper:
                         cursor.execute('INSERT OR IGNORE INTO edges (source_title, target_title) VALUES (?, ?)',
                                        (current_title, link))
                         cursor.execute('INSERT OR IGNORE INTO articles (title, visited) VALUES (?, 0)', (link,))
-                        queue.append(link)
+                        # The articles table doubles as the "seen" set: only brand-new titles get queued.
+                        if cursor.rowcount == 1:
+                            queue.append(link)
 
                     cursor.execute('UPDATE articles SET visited = 1 WHERE title = ?', (current_title,))
                     self.pages_processed += 1
