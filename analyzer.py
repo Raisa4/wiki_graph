@@ -1,7 +1,10 @@
+import logging
 from database import get_connection
 from graph_metrics import calculate_degrees, calculate_heat_scores
 from physics import initialize_positions, run_physics_simulation
 from renderer import draw_graph
+
+logger = logging.getLogger(__name__)
 
 
 def build_adjacency_list(db_name='wiki_graph.db'):
@@ -25,19 +28,19 @@ def build_adjacency_list(db_name='wiki_graph.db'):
 
 
 def analyze(db_name='wiki_graph.db', top=300, iterations=50, width=800, height=600, screenshot=None):
-    print("Loading graph data...")
+    logger.info("Loading graph data from %s...", db_name)
     graph, all_edges = build_adjacency_list(db_name)
     if not graph:
-        print(f"No edges found in {db_name}. Run a crawl first.")
+        logger.error("No edges found in %s. Run a crawl first.", db_name)
         return
 
-    print("Calculating metrics...")
+    logger.info("Calculating metrics for %d nodes and %d edges...", len(graph), len(all_edges))
     in_degree, out_degree = calculate_degrees(graph)
     heat_scores = calculate_heat_scores(in_degree)
 
     sorted_nodes = sorted(heat_scores.items(), key=lambda item: item[1], reverse=True)
     top_nodes = {node for node, score in sorted_nodes[:top]}  # set: O(1) membership checks
-    print(f"Extracted the top {len(top_nodes)} nodes for visualization.")
+    logger.info("Extracted the top %d nodes for visualization.", len(top_nodes))
 
     filtered_edges = []
     for source, target in all_edges:
@@ -55,7 +58,7 @@ def analyze(db_name='wiki_graph.db', top=300, iterations=50, width=800, height=6
         height=height
     )
 
-    print("Rendering graph...")
+    logger.info("Rendering graph...")
     # Hand the calculated data over to Pygame
     draw_graph(
         positions=final_positions,

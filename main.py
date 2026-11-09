@@ -4,10 +4,12 @@
     python main.py analyze --top 300
 """
 import argparse
+import logging
 
 
 def build_parser():
     parser = argparse.ArgumentParser(description="Crawl Wikipedia links and visualize the resulting graph.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show debug-level progress logs")
     parser.add_argument("--db", default="wiki_graph.db", help="SQLite database file (default: %(default)s)")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -29,6 +31,13 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    # urllib3 logs every request at DEBUG; keep it quiet even in verbose mode.
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
     # Imported lazily so `crawl` doesn't need pygame and `analyze` doesn't need requests.
     if args.command == "crawl":

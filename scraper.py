@@ -1,9 +1,12 @@
+import logging
 import os
 import requests
 from collections import deque
 import time
 import concurrent.futures
 from database import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 class WikiScraper:
@@ -28,12 +31,15 @@ class WikiScraper:
             try:
                 response = requests.get(self.API_URL, params=params, headers=self.headers, timeout=10)
                 if response.status_code == 429:
-                    time.sleep(int(response.headers.get("Retry-After", 5)))
+                    wait = int(response.headers.get("Retry-After", 5))
+                    logger.warning("Rate limited (429), waiting %ds before retrying", wait)
+                    time.sleep(wait)
                     continue
 
                 response.raise_for_status()
                 return response.json()
-            except (requests.exceptions.RequestException, ValueError):
+            except (requests.exceptions.RequestException, ValueError) as exc:
+                logger.warning("Request failed (attempt %d/3): %s", attempt + 1, exc)
                 time.sleep(2)
         return None
 
@@ -87,7 +93,7 @@ class WikiScraper:
         cursor = self.conn.cursor()
         queue = self._load_queue(seed)
 
-        print(f"Starting crawl from '{seed}' (Target: {max_pages} pages, {len(queue)} queued)")
+        logger.info("Starting crawl from '%s' (target: %d pages, %d queued)", seed, max_pages, len(queue))
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             while queue and self.pages_processed < max_pages:
@@ -111,7 +117,7 @@ class WikiScraper:
                     if links is None:
                         # Leave visited = 0 so a later run retries this page.
                         self.pages_failed += 1
-                        print(f"Failed to fetch '{current_title}', will retry on next run")
+                        logger.error("Failed to fetch '%s', will retry on next run", current_title)
                         continue
 
                     self.links_found += len(links)
@@ -127,11 +133,12 @@ class WikiScraper:
                     self.pages_processed += 1
 
                 self.conn.commit()
+                logger.debug("Processed %d/%d pages, queue size %d", self.pages_processed, max_pages, len(queue))
                 time.sleep(0.5)
 
-        self.print_statistics()
+        self.log_statistics()
 
-    def print_statistics(self):
+    def log_statistics(self):
         elapsed = time.time() - self.start_time
         rate = self.pages_processed / elapsed if elapsed > 0 else 0
 
@@ -141,14 +148,7 @@ class WikiScraper:
         cursor.execute("SELECT COUNT(*) FROM edges")
         total_edges = cursor.fetchone()[0]
 
-        print("\n" + "=" * 30)
-        print(" SCRAPE COMPLETE - STATISTICS")
-        print("=" * 30)
-        print(f"Total Time:      {elapsed:.2f} seconds")
-        print(f"Pages Processed: {self.pages_processed}")
-        print(f"Pages Failed:    {self.pages_failed}")
-        print(f"Speed:           {rate:.2f} pages/sec")
-        print("-" * 30)
-        print(f"Total Nodes:     {total_nodes}")
-        print(f"Total Edges:     {total_edges}")
-        print("=" * 30 + "\n")
+        logger.info(
+            "Crawl complete: %d pages in %.2fs (%.2f pages/sec), %d failed. "
+            "Database now has %d nodes and %d edges.",
+            self.pages_processed, elapsed, rate, self.pages_failed, total_nodes, total_edges)

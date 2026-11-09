@@ -1,5 +1,8 @@
+import logging
 import random
 import math
+
+logger = logging.getLogger(__name__)
 
 
 def initialize_positions(nodes, width=800, height=600):
@@ -20,11 +23,11 @@ def run_physics_simulation(positions, edges, iterations=50, width=800, height=60
     # Temperature controls how much nodes can move. It cools down (decreases) over time.
     temperature = width / 10
 
-    print(f"Running physics simulation for {iterations} iterations...")
+    logger.info("Running physics simulation for %d iterations...", iterations)
 
     for i in range(iterations):
         if i % 10 == 0:
-            print(f"Stabilizing... Iteration {i}/{iterations}")
+            logger.debug("Stabilizing... iteration %d/%d", i, iterations)
 
         # Store the intended movement for each node before actually moving them
         displacements = {node: {'x': 0.0, 'y': 0.0} for node in positions}
@@ -80,5 +83,5 @@ def run_physics_simulation(positions, edges, iterations=50, width=800, height=60
         # Cool down the temperature so the graph slowly settles into place
         temperature *= 0.9
 
-    print("Physics simulation complete.")
+    logger.info("Physics simulation complete.")
     return positions
