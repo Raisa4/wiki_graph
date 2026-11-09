@@ -69,15 +69,25 @@ class WikiScraper:
                 return links
             params = {**params, **data["continue"]}
 
-    def run(self, seed, max_pages):
-        self.start_time = time.time()
-        cursor = self.conn.cursor()
-        queue = deque([seed])
+    def _load_queue(self, seed):
+        """Rebuild the BFS queue from the database so an interrupted crawl can resume.
 
+        Unvisited articles are loaded in insertion order (rowid), which matches the
+        order they were discovered. The seed is only added if it has never been seen.
+        """
+        cursor = self.conn.cursor()
         cursor.execute('INSERT OR IGNORE INTO articles (title, visited) VALUES (?, 0)', (seed,))
         self.conn.commit()
 
-        print(f"Starting crawl from '{seed}' (Target: {max_pages} pages)")
+        cursor.execute('SELECT title FROM articles WHERE visited = 0 ORDER BY rowid')
+        return deque(row[0] for row in cursor.fetchall())
+
+    def run(self, seed, max_pages):
+        self.start_time = time.time()
+        cursor = self.conn.cursor()
+        queue = self._load_queue(seed)
+
+        print(f"Starting crawl from '{seed}' (Target: {max_pages} pages, {len(queue)} queued)")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             while queue and self.pages_processed < max_pages:
