@@ -4,10 +4,9 @@
 
 Crawls Wikipedia's link structure into SQLite, ranks articles by how often other articles link to them, and draws the most central ones as an interactive force-directed graph. The layout algorithm is written from scratch, with no graph libraries.
 
-<!-- TODO: add a screenshot. Generate it with:
-     python main.py analyze --top 300 --screenshot docs/screenshot.png
-![Graph of the 300 most-linked articles around "Graph theory"](docs/screenshot.png)
--->
+![Graph of the 300 most-linked articles from a 500-page crawl starting at "Graph theory"](docs/screenshot.png)
+
+*The 300 most-linked articles from a 500-page crawl starting at "Graph theory". Regenerate with `python main.py analyze --top 300 --screenshot docs/screenshot.png`.*
 
 - **Red, large nodes:** *base topics*, which many crawled articles link to.
 - **Blue nodes:** *niche topics*, which rarely get linked to but link out to many articles.
@@ -58,7 +57,7 @@ pytest
 
 **A from-scratch layout.** `physics.py` implements Fruchterman–Reingold:
 - every pair of nodes repels with force k²/d,
-- every edge pulls like a spring with force d²/k,
+- every edge pulls like a spring with force d²/k, divided by √degree of the node being pulled. The top 300 articles share ~22,000 edges, and without this damping each node is pulled by ~150 springs at once and the layout collapses into a blob,
 - each step's movement is capped by a "temperature" that cools by 10% per iteration, so the graph settles instead of oscillating.
 
 ## Limitations
@@ -66,4 +65,5 @@ pytest
 - **O(n²) repulsion.** Every layout iteration compares every pair of nodes, which is why only the top 300 nodes are drawn. A Barnes–Hut quadtree would bring this down to O(n log n).
 - **Heat depends on where the crawl started.** In-degree only counts links from pages that have been crawled, so articles near the seed score higher than their global importance warrants.
 - **Single-threaded writes.** Parsing is cheap compared with the network, but a very large crawl would eventually be limited by SQLite commits on the main thread.
+- **Citation templates dominate the ranking.** Reference templates make nearly every article link to pages like `ISBN (identifier)` and `Doi (identifier)`, so these come out as the "hottest" nodes. Filtering them out is a possible next step.
 - **Redirects.** Links are stored under their linked title, so `USA` and `United States` can appear as separate nodes.
