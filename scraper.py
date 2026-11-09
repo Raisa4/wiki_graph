@@ -1,3 +1,4 @@
+import os
 import requests
 from collections import deque
 import time
@@ -6,10 +7,12 @@ from database import get_connection
 
 
 class WikiScraper:
-    def __init__(self, email='bahaciuraisa@gmail.com', max_workers=5):
-        # Import the connection from our new database.py file
-        self.conn = get_connection()
-        self.headers = {"User-Agent": f"WikiGraphProject/1.0 ({email})"}
+    def __init__(self, contact=None, max_workers=5, db_name='wiki_graph.db'):
+        self.conn = get_connection(db_name)
+        # Wikimedia asks API clients to include contact info in the User-Agent.
+        # Read it from the environment so no personal address lives in the code.
+        contact = contact or os.environ.get("WIKI_GRAPH_CONTACT", "https://github.com/Raisa4/wiki_graph")
+        self.headers = {"User-Agent": f"WikiGraphProject/1.0 ({contact})"}
         self.max_workers = max_workers
 
         self.pages_processed = 0
