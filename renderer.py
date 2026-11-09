@@ -1,6 +1,12 @@
 import pygame
 import math
 
+from graph_metrics import categorize_nodes
+
+BASE_STYLE = ((220, 50, 50), 8)       # Base topics: large, red
+NICHE_STYLE = ((50, 120, 220), 4)     # Niche topics: small, blue
+DEFAULT_STYLE = ((150, 150, 150), 3)  # Everything else: tiny, light gray
+
 
 def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600):
     pygame.init()
@@ -9,6 +15,12 @@ def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600)
 
     # Load a default font for the hover text
     font = pygame.font.SysFont(None, 24)
+
+    # Categorize once, up front, using the shared thresholds in graph_metrics.
+    drawn_heat = {node: heat_scores.get(node, 0) for node in positions}
+    base_topics, niche_topics = categorize_nodes(drawn_heat, out_degree)
+    styles = {node: BASE_STYLE for node, _ in base_topics}
+    styles.update({node: NICHE_STYLE for node, _ in niche_topics})
 
     running = True
     while running:
@@ -35,22 +47,7 @@ def draw_graph(positions, edges, heat_scores, out_degree, width=800, height=600)
         for node, pos in positions.items():
             x, y = int(pos['x']), int(pos['y'])
 
-            heat = heat_scores.get(node, 0)
-            out = out_degree.get(node, 0)
-
-            # Base Topics: Large, Red
-            if heat >= 0.3:
-                color = (220, 50, 50)
-                radius = 8
-            # Niche Topics: Small, Blue
-            elif heat <= 0.05 and out >= 100:
-                color = (50, 120, 220)
-                radius = 4
-            # Standard nodes: Tiny, Light Gray
-            else:
-                color = (150, 150, 150)
-                radius = 3
-
+            color, radius = styles.get(node, DEFAULT_STYLE)
             pygame.draw.circle(screen, color, (x, y), radius)
 
             # Check if mouse is within 10 pixels of this node

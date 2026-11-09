@@ -35,7 +35,14 @@ def calculate_heat_scores(in_degree):
     return heat_scores
 
 
-def categorize_nodes(heat_scores, out_degree, heat_threshold=0.5, out_threshold=50):
+# Single source of truth for node categories (used by the renderer too).
+BASE_HEAT_THRESHOLD = 0.3   # heat at or above this -> base topic
+NICHE_HEAT_MAX = 0.05       # heat at or below this ...
+NICHE_OUT_THRESHOLD = 100   # ... with at least this many outgoing links -> niche topic
+
+
+def categorize_nodes(heat_scores, out_degree, heat_threshold=BASE_HEAT_THRESHOLD,
+                     out_threshold=NICHE_OUT_THRESHOLD, niche_heat_max=NICHE_HEAT_MAX):
     base_topics = []
     niche_topics = []
 
@@ -48,7 +55,7 @@ def categorize_nodes(heat_scores, out_degree, heat_threshold=0.5, out_threshold=
             base_topics.append((node, heat))
 
         # Niche Topics: Point to many articles, but rarely linked to themselves
-        elif heat <= 0.05 and out >= out_threshold:
+        elif heat <= niche_heat_max and out >= out_threshold:
             niche_topics.append((node, out))
 
     return base_topics, niche_topics
