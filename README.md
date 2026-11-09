@@ -6,11 +6,15 @@ Crawls Wikipedia's link structure into SQLite, ranks articles by how often other
 
 ![Graph of the 300 most-linked articles from a 500-page crawl starting at "Graph theory"](docs/screenshot.png)
 
-*The 300 most-linked articles from a 500-page crawl starting at "Graph theory". Regenerate with `python main.py analyze --top 300 --screenshot docs/screenshot.png`.*
+*The 300 most-linked articles from a 500-page crawl starting at "Graph theory". The citation hubs and core topics sit in the middle. The two dense clusters are the members of Wikipedia's mathematics and computer-science navigation boxes, since every page that includes a navbox links to all of its entries. Regenerate with `python main.py analyze --top 300 --width 1200 --height 800 --screenshot docs/screenshot.png`.*
 
-- **Red, large nodes:** *base topics*, which many crawled articles link to.
-- **Blue nodes:** *niche topics*, which rarely get linked to but link out to many articles.
-- **Gray nodes:** everything else. Hover over any node to see its title.
+- **Node size** grows with how many crawled articles link to the node.
+- **Red nodes:** *base topics*, which many crawled articles link to.
+- **Blue nodes:** *niche topics*, which rarely get linked to but link out to many articles. Because they're rarely linked, they almost never make a top-N view.
+- **Gray nodes:** everything else.
+- **Edges** add up in brightness, so heavily linked regions glow.
+
+Hover over any node to see its title, heat and outgoing link count. Press Esc to close.
 
 ## How it works
 
